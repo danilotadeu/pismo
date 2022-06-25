@@ -20,7 +20,7 @@ import (
 )
 
 func TestTransactionHandler(t *testing.T) {
-	store, _ := store.Register()
+	store := store.Register(nil)
 	apps := app.Register(store)
 	api := apiImpl{
 		apps: apps,

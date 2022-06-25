@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 
@@ -30,7 +31,8 @@ func New() Server {
 }
 
 func (e *server) Start() {
-	e.Store, e.Db = store.Register()
+	e.Db = connectDatabase()
+	e.Store = store.Register(e.Db)
 	e.App = app.Register(e.Store)
 	e.Fiber = api.Register(e.App)
 
@@ -44,4 +46,20 @@ func (e *server) Start() {
 	}()
 
 	e.Fiber.Listen(":" + os.Getenv("PORT"))
+}
+
+func connectDatabase() *sql.DB {
+	connectionMysql := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?multiStatements=true", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_DATABASE"))
+	db, err := sql.Open("mysql", connectionMysql)
+	if err != nil {
+		panic(err)
+	}
+
+	if err = db.Ping(); err != nil {
+		db.Close()
+		log.Println("error db.Ping(): ", err.Error())
+		panic(err)
+	}
+
+	return db
 }

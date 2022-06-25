@@ -21,7 +21,6 @@ services:
       MYSQL_DATABASE: pismo
       MYSQL_USER: go_test
       MYSQL_PASSWORD: pismo123
-      # TZ: 'Asia/Tokyo'
     command: --init-file /data/application/init.sql
     volumes:
       - db-data:/var/lib/mysql
@@ -29,6 +28,15 @@ services:
       - ./init.sql:/data/application/init.sql
     ports:
       - 3306:3306
+
+  migrate:
+    image: migrate/migrate
+    depends_on:
+      - db
+    volumes:
+      - /Users/danilotadeuoliveirasilva/Desktop/Projects/pismo/db_pismo/db/migration:/database
+    command:
+      [ "-path", "/database", "-database",  "mysql://go_test:pismo123@tcp(db:3306)/pismo?multiStatements=true", "up" ]
 
 volumes:
   db-data:
