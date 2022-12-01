@@ -9,7 +9,9 @@ import (
 	accountModel "github.com/danilotadeu/pismo/model/account"
 )
 
-//Store is a contract to Account..
+// Store is a contract to Account..
+//
+//go:generate mockgen -destination ../../mock/store/account/account_store_mock.go -package mockStoreAccount . Store
 type Store interface {
 	StoreCreateAccount(ctx context.Context, documentNumber string) (*int64, error)
 	GetAccount(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error)
@@ -21,14 +23,14 @@ type storeImpl struct {
 	db *sql.DB
 }
 
-//NewApp init a account
+// NewApp init a account
 func NewStore(db *sql.DB) Store {
 	return &storeImpl{
 		db: db,
 	}
 }
 
-//StoreCreateAccount create a account..
+// StoreCreateAccount create a account..
 func (a *storeImpl) StoreCreateAccount(ctx context.Context, documentNumber string) (*int64, error) {
 	query := fmt.Sprintf("INSERT INTO accounts(document_number) VALUES ('%s')", documentNumber)
 	res, err := a.db.Exec(query)
@@ -46,7 +48,7 @@ func (a *storeImpl) StoreCreateAccount(ctx context.Context, documentNumber strin
 	return &lastId, nil
 }
 
-//GetAccount get a account..
+// GetAccount get a account..
 func (a *storeImpl) GetAccount(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error) {
 	res, err := a.db.Query("SELECT * FROM accounts WHERE id = ?", accountId)
 	if err != nil {
@@ -68,7 +70,7 @@ func (a *storeImpl) GetAccount(ctx context.Context, accountId int64) (*accountMo
 	}
 }
 
-//GetAccount get a account by document number..
+// GetAccount get a account by document number..
 func (a *storeImpl) GetAccountByDocumentNumber(ctx context.Context, documentNumber string) (*accountModel.AccountCountResultQuery, error) {
 	res, err := a.db.Query("SELECT COUNT(*) as count FROM accounts WHERE document_number = ?", documentNumber)
 	if err != nil {
@@ -90,7 +92,7 @@ func (a *storeImpl) GetAccountByDocumentNumber(ctx context.Context, documentNumb
 	return nil, accountModel.ErrorAccountNotFound
 }
 
-//GetAllAccounts get a account by document number..
+// GetAllAccounts get a account by document number..
 func (a *storeImpl) GetAllAccounts(ctx context.Context) ([]*accountModel.AccountResultQuery, error) {
 	res, err := a.db.Query("SELECT * FROM accounts")
 	if err != nil {

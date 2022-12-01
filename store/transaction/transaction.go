@@ -7,7 +7,7 @@ import (
 	"log"
 )
 
-//Store is a contract to Account..
+//go:generate mockgen -destination ../../mock/store/transaction/transaction_store_mock.go -package mockStoreTransaction . Store
 type Store interface {
 	CreateTransaction(ctx context.Context, accountID int64, operationTypeID int, amount float64) (*int64, error)
 }
@@ -16,14 +16,14 @@ type storeImpl struct {
 	db *sql.DB
 }
 
-//NewApp init a account
+// NewApp init a account
 func NewStore(db *sql.DB) Store {
 	return &storeImpl{
 		db: db,
 	}
 }
 
-//CreateTransaction create a transaction..
+// CreateTransaction create a transaction..
 func (a *storeImpl) CreateTransaction(ctx context.Context, accountID int64, operationTypeID int, amount float64) (*int64, error) {
 	query := fmt.Sprintf("INSERT INTO transactions(account_id,operation_type_id,amount) VALUES ('%d','%d','%f')", accountID, operationTypeID, amount)
 	res, err := a.db.Exec(query)

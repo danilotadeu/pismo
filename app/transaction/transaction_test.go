@@ -2,132 +2,113 @@ package transaction
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"testing"
 
+	mockStoreAccount "github.com/danilotadeu/pismo/mock/store/account"
+	mockStoreTransaction "github.com/danilotadeu/pismo/mock/store/transaction"
 	accountModel "github.com/danilotadeu/pismo/model/account"
 	"github.com/danilotadeu/pismo/model/transaction"
+	"github.com/danilotadeu/pismo/store"
+	"github.com/golang/mock/gomock"
+	"gopkg.in/go-playground/assert.v1"
 )
 
 func TestCreateTransaction(t *testing.T) {
-	type args struct {
-		ctx             context.Context
-		transactionBody transaction.TransactionRequest
-	}
-	var ID int64
-	ID = 1
-	tests := []struct {
-		name              string
-		args              args
-		want              *int64
-		wantErr           bool
-		GetAccount        func(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error)
-		CreateTransaction func(ctx context.Context, accountID int64, operationTypeID int, amount float64) (*int64, error)
+	var transactionIDExpected int64 = 2
+	cases := map[string]struct {
+		inputTransaction      transaction.TransactionRequest
+		prepareMock           func(accountStore *mockStoreAccount.MockStore, transactionStore *mockStoreTransaction.MockStore)
+		expectedTransactionID *int64
+		expectedErr           error
 	}{
-		{
-			name: "Should return transaction invalid",
-			args: args{
-				ctx: context.Background(),
-				transactionBody: transaction.TransactionRequest{
-					AccountID:       1,
-					OperationTypeID: 10,
-					Amount:          1,
-				},
+		"should create a transaction with success": {
+			inputTransaction: transaction.TransactionRequest{
+				AccountID:       1,
+				OperationTypeID: 1,
+				Amount:          1,
 			},
-			want:    nil,
-			wantErr: true,
+			prepareMock: func(accountStore *mockStoreAccount.MockStore, transactionStore *mockStoreTransaction.MockStore) {
+				accountStore.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, nil)
+				var transactionID int64
+				transactionID = 2
+				transactionStore.EXPECT().CreateTransaction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&transactionID, nil)
+			},
+			expectedTransactionID: &transactionIDExpected,
+			expectedErr:           nil,
 		},
-		{
-			name: "Should return get account not found",
-			args: args{
-				ctx: context.Background(),
-				transactionBody: transaction.TransactionRequest{
-					AccountID:       1,
-					OperationTypeID: 1,
-					Amount:          1,
-				},
+		"should return error when getAccount": {
+			inputTransaction: transaction.TransactionRequest{
+				AccountID:       1,
+				OperationTypeID: 1,
+				Amount:          1,
 			},
-			want:    nil,
-			wantErr: true,
-			GetAccount: func(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error) {
-				return nil, accountModel.ErrorAccountNotFound
-			},
-		},
-		{
-			name: "Should return get account error",
-			args: args{
-				ctx: context.Background(),
-				transactionBody: transaction.TransactionRequest{
-					AccountID:       1,
-					OperationTypeID: 1,
-					Amount:          1,
-				},
-			},
-			want:    nil,
-			wantErr: true,
-			GetAccount: func(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error) {
-				return nil, errors.New("Internal server error")
-			},
-		},
-		{
-			name: "Should return error to create transaction",
-			args: args{
-				ctx: context.Background(),
-				transactionBody: transaction.TransactionRequest{
-					AccountID:       1,
-					OperationTypeID: 1,
-					Amount:          1,
-				},
-			},
-			want:    nil,
-			wantErr: true,
-			GetAccount: func(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error) {
-				return &accountModel.AccountResultQuery{
-					ID:             1,
-					DocumentNumber: "12345678910",
-				}, nil
-			},
-			CreateTransaction: func(ctx context.Context, accountID int64, operationTypeID int, amount float64) (*int64, error) {
-				return nil, errors.New("Internal server error")
-			},
-		},
-		{
-			name: "Should return create transaction",
-			args: args{
-				ctx: context.Background(),
-				transactionBody: transaction.TransactionRequest{
-					AccountID:       1,
-					OperationTypeID: 1,
-					Amount:          1,
-				},
-			},
-			want:    &ID,
-			wantErr: false,
-			GetAccount: func(ctx context.Context, accountId int64) (*accountModel.AccountResultQuery, error) {
-				return &accountModel.AccountResultQuery{
-					ID:             1,
-					DocumentNumber: "12345678910",
-				}, nil
-			},
-			CreateTransaction: func(ctx context.Context, accountID int64, operationTypeID int, amount float64) (*int64, error) {
+			prepareMock: func(accountStore *mockStoreAccount.MockStore, transactionStore *mockStoreTransaction.MockStore) {
+				accountStore.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error"))
 
-				return &ID, nil
 			},
+			expectedTransactionID: nil,
+			expectedErr:           fmt.Errorf("error"),
+		},
+		"should return error account not found when getAccount": {
+			inputTransaction: transaction.TransactionRequest{
+				AccountID:       1,
+				OperationTypeID: 1,
+				Amount:          1,
+			},
+			prepareMock: func(accountStore *mockStoreAccount.MockStore, transactionStore *mockStoreTransaction.MockStore) {
+				accountStore.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, accountModel.ErrorAccountNotFound)
+
+			},
+			expectedTransactionID: nil,
+			expectedErr:           accountModel.ErrorAccountNotFound,
+		},
+		"should return error when a transaction type is not valid": {
+			inputTransaction: transaction.TransactionRequest{
+				AccountID:       1,
+				OperationTypeID: 5,
+				Amount:          1,
+			},
+			prepareMock:           func(accountStore *mockStoreAccount.MockStore, transactionStore *mockStoreTransaction.MockStore) {},
+			expectedTransactionID: nil,
+			expectedErr:           transaction.ErrorTransactionTypeNotFound,
+		},
+		"should return error to create transaction": {
+			inputTransaction: transaction.TransactionRequest{
+				AccountID:       1,
+				OperationTypeID: 1,
+				Amount:          1,
+			},
+			prepareMock: func(accountStore *mockStoreAccount.MockStore, transactionStore *mockStoreTransaction.MockStore) {
+				accountStore.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Return(nil, nil)
+				transactionStore.EXPECT().CreateTransaction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error"))
+			},
+			expectedTransactionID: nil,
+			expectedErr:           fmt.Errorf("error"),
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			GetAccount = tt.GetAccount
-			CreateTransaction = tt.CreateTransaction
-			a := &appImpl{}
-			got, err := a.CreateTransaction(tt.args.ctx, tt.args.transactionBody)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("appImpl.CreateTransaction() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("appImpl.CreateTransaction() = %v, want %v", got, tt.want)
-			}
+
+	for name, cs := range cases {
+		t.Run(name, func(t *testing.T) {
+			// given
+			ctrl, ctx := gomock.WithContext(context.Background(), t)
+			defer ctrl.Finish()
+
+			accountStoreMock := mockStoreAccount.NewMockStore(ctrl)
+			transactionStoreMock := mockStoreTransaction.NewMockStore(ctrl)
+
+			cs.prepareMock(accountStoreMock, transactionStoreMock)
+			app := NewApp(&store.Container{
+				Account:     accountStoreMock,
+				Transaction: transactionStoreMock,
+			})
+
+			// when
+			transactionID, err := app.CreateTransaction(ctx, cs.inputTransaction)
+
+			// then
+			assert.Equal(t, cs.expectedTransactionID, transactionID)
+			assert.Equal(t, cs.expectedErr, err)
 		})
 	}
 }

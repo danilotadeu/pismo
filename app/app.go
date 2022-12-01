@@ -8,13 +8,13 @@ import (
 	"github.com/danilotadeu/pismo/store"
 )
 
-//Container ...
+// Container ...
 type Container struct {
 	Account     account.App
 	Transaction transaction.App
 }
 
-//Register app container
+// Register app container
 func Register(store *store.Container) *Container {
 	container := &Container{
 		Account:     account.NewApp(store),

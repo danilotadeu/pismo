@@ -16,9 +16,16 @@ run: ## run it will instance server
 run-watch: ## run-watch it will instance server with reload
 	VERSION=$(VERSION) nodemon --exec go run main.go --signal SIGTERM
 
+.PHONY: mock
 mock:
-	rm -rf ./mocks
-	~/go/bin/mockgen -source=./app/transaction/transaction.go -destination=./mocks/transaction_app_mock.go -package=mocks -mock_names=App=TransactionApp &
+	go generate ./...
+
+.PHONY: test/cov
+test/cov:
+	go test --cover -coverpkg=./app/...  ./... -coverprofile=cover_app.out
+	go test --cover -coverpkg=./api/...  ./... -coverprofile=cover_api.out
+	go tool cover -html=cover_app.out
+	go tool cover -html=cover_api.out
 
 migrateup:
 	migrate -path db_pismo/db/migration -database "mysql://go_test:pismo123@tcp(localhost:3306)/pismo?multiStatements=true" -verbose up
