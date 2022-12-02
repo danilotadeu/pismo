@@ -1,2 +1,4 @@
 .env
 ./vscode
+cover_app.out
+cover_api.out
