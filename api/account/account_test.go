@@ -70,11 +70,9 @@ func TestHandlerAccountCreate(t *testing.T) {
 			InputBody: accountModel.AccountRequest{
 				DocumentNumber: "/",
 			},
-			NotParse:    true,
-			ExpectedErr: nil,
-			PrepareMockApp: func(mockAccountApp *mockAppAccount.MockApp) {
-				//mockAccountApp.EXPECT().CreateAccount(gomock.Any(), gomock.Any()).Return(nil, accountModel.ErrorAccountExists)
-			},
+			NotParse:           true,
+			ExpectedErr:        nil,
+			PrepareMockApp:     func(mockAccountApp *mockAppAccount.MockApp) {},
 			ExpectedStatusCode: http.StatusInternalServerError,
 		},
 	}
