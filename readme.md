@@ -48,9 +48,5 @@ $ curl --location --request GET 'http://127.0.0.1:3000/accounts/1' \
 - To run tests, follow steps:
 
 ``` 
-cd app/transaction && go test -timeout 30s -run ^TestCreateTransaction
-``` 
-
-``` 
-cd api/transaction && go test -timeout 30s -run ^TestTransactionHandler
+make test/cov
 ``` 
