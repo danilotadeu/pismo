@@ -1,7 +1,6 @@
 package account
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -46,7 +45,7 @@ func (p *apiImpl) accountCreate(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
+	ctx := c.Context()
 
 	response, err := p.apps.Account.CreateAccount(ctx, bodyAccount.DocumentNumber)
 	if err != nil {
@@ -68,14 +67,6 @@ func (p *apiImpl) accountCreate(c *fiber.Ctx) error {
 
 func (p *apiImpl) account(c *fiber.Ctx) error {
 	accountId := c.Params("accountId")
-	if len(accountId) <= 0 {
-		return c.Status(http.StatusBadRequest).JSON(
-			errorsP.ErrorsResponse{
-				Message: "Por favor informe o accountId",
-			},
-		)
-	}
-
 	iAccountId, err := strconv.ParseInt(accountId, 10, 64)
 	if err != nil {
 		log.Println("api.account.account.ParseInt", err.Error())
@@ -84,7 +75,7 @@ func (p *apiImpl) account(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	account, err := p.apps.Account.GetAccount(ctx, iAccountId)
 	if err != nil {
 		log.Println("api.account.account.GetAccount", err.Error())
@@ -102,7 +93,7 @@ func (p *apiImpl) account(c *fiber.Ctx) error {
 }
 
 func (p *apiImpl) allAccounts(c *fiber.Ctx) error {
-	ctx := context.Background()
+	ctx := c.Context()
 	accounts, err := p.apps.Account.GetAllAccounts(ctx)
 	if err != nil {
 		log.Println("api.account.account.GetAccount", err.Error())

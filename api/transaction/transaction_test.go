@@ -4,151 +4,118 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/danilotadeu/pismo/app"
+	mockAppTransaction "github.com/danilotadeu/pismo/mock/app/transaction"
 	accountModel "github.com/danilotadeu/pismo/model/account"
-	modelTransaction "github.com/danilotadeu/pismo/model/transaction"
 	transactionModel "github.com/danilotadeu/pismo/model/transaction"
-	"github.com/danilotadeu/pismo/store"
-	"github.com/danilotadeu/pismo/tests_personal"
-
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang/mock/gomock"
+	"gopkg.in/go-playground/assert.v1"
 )
 
-func TestTransactionHandler(t *testing.T) {
-	store := store.Register(nil)
-	apps := app.Register(store)
-	api := apiImpl{
-		apps: apps,
-	}
-	tests := []struct {
-		name                   string
-		method                 string
-		contentType            string
-		header                 map[string]string
-		url                    string
-		urlReq                 string
-		handlerFunc            func(c *fiber.Ctx) error
-		Input                  modelTransaction.TransactionRequest
-		want                   int
-		bodyShow               bool
-		PrepareMockTransaction func(ctx context.Context, transactionBody transactionModel.TransactionRequest) (*int64, error)
+func TestTransactionCreate(t *testing.T) {
+	endpoint := "/transactions/"
+	var transactionID int64 = 2
+	cases := map[string]struct {
+		InputBody          transactionModel.TransactionRequest
+		NotParse           bool
+		ExpectedErr        error
+		ExpectedStatusCode int
+		PrepareMockApp     func(mockTransactionApp *mockAppTransaction.MockApp)
 	}{
-		{
-			name:        "Should return error bad request",
-			method:      "POST",
-			contentType: "application/json",
-			header:      nil,
-			url:         "/transactions",
-			urlReq:      "/transactions",
-			handlerFunc: api.transactionCreate,
-			Input: modelTransaction.TransactionRequest{
+		"should return success with transactionID created": {
+			InputBody: transactionModel.TransactionRequest{
 				AccountID:       1,
 				OperationTypeID: 1,
-				Amount:          0,
+				Amount:          4,
 			},
-			want:     http.StatusBadRequest,
-			bodyShow: true,
+			ExpectedErr: nil,
+			PrepareMockApp: func(mockTransactionApp *mockAppTransaction.MockApp) {
+				mockTransactionApp.EXPECT().CreateTransaction(gomock.Any(), gomock.Any()).Return(&transactionID, nil)
+			},
+			ExpectedStatusCode: http.StatusCreated,
 		},
-		{
-			name:        "Should return error with account dont exist",
-			method:      "POST",
-			contentType: "application/json",
-			header:      nil,
-			url:         "/transactions",
-			urlReq:      "/transactions",
-			handlerFunc: api.transactionCreate,
-			Input: modelTransaction.TransactionRequest{
-				AccountID:       1,
-				OperationTypeID: 1,
-				Amount:          1,
-			},
-			want:     http.StatusNotFound,
-			bodyShow: true,
-			PrepareMockTransaction: func(ctx context.Context, transactionBody transactionModel.TransactionRequest) (*int64, error) {
-				return nil, accountModel.ErrorAccountNotFound
-			},
+		"should return error to bind": {
+			InputBody:          transactionModel.TransactionRequest{},
+			ExpectedErr:        nil,
+			NotParse:           true,
+			PrepareMockApp:     func(mockTransactionApp *mockAppTransaction.MockApp) {},
+			ExpectedStatusCode: http.StatusInternalServerError,
 		},
-		{
-			name:        "Should return error with transaction type invalid",
-			method:      "POST",
-			contentType: "application/json",
-			header:      nil,
-			url:         "/transactions",
-			urlReq:      "/transactions",
-			handlerFunc: api.transactionCreate,
-			Input: modelTransaction.TransactionRequest{
-				AccountID:       1,
-				OperationTypeID: 1,
-				Amount:          1,
+		"should return error with bad request data": {
+			InputBody: transactionModel.TransactionRequest{
+				OperationTypeID: 5,
 			},
-			want:     http.StatusNotFound,
-			bodyShow: true,
-			PrepareMockTransaction: func(ctx context.Context, transactionBody transactionModel.TransactionRequest) (*int64, error) {
-				return nil, transactionModel.ErrorTransactionTypeNotFound
-			},
+			ExpectedErr:        nil,
+			PrepareMockApp:     func(mockTransactionApp *mockAppTransaction.MockApp) {},
+			ExpectedStatusCode: http.StatusBadRequest,
 		},
-		{
-			name:        "Should return error with internal server error",
-			method:      "POST",
-			contentType: "application/json",
-			header:      nil,
-			url:         "/transactions",
-			urlReq:      "/transactions",
-			handlerFunc: api.transactionCreate,
-			Input: modelTransaction.TransactionRequest{
+		"should return error to create transaction": {
+			InputBody: transactionModel.TransactionRequest{
 				AccountID:       1,
 				OperationTypeID: 1,
-				Amount:          1,
+				Amount:          4,
 			},
-			want:     http.StatusInternalServerError,
-			bodyShow: true,
-			PrepareMockTransaction: func(ctx context.Context, transactionBody transactionModel.TransactionRequest) (*int64, error) {
-				return nil, errors.New("Internal Server Error")
+			ExpectedErr: nil,
+			PrepareMockApp: func(mockTransactionApp *mockAppTransaction.MockApp) {
+				mockTransactionApp.EXPECT().CreateTransaction(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error"))
 			},
+			ExpectedStatusCode: http.StatusInternalServerError,
 		},
-		{
-			name:        "Should return success created",
-			method:      "POST",
-			contentType: "application/json",
-			header:      nil,
-			url:         "/transactions",
-			urlReq:      "/transactions",
-			handlerFunc: api.transactionCreate,
-			Input: modelTransaction.TransactionRequest{
+		"should return error to create transaction with account not found": {
+			InputBody: transactionModel.TransactionRequest{
 				AccountID:       1,
 				OperationTypeID: 1,
-				Amount:          1,
+				Amount:          4,
 			},
-			want:     http.StatusCreated,
-			bodyShow: true,
-			PrepareMockTransaction: func(ctx context.Context, transactionBody transactionModel.TransactionRequest) (*int64, error) {
-				var id int64
-				id = 1
-				return &id, nil
+			ExpectedErr: nil,
+			PrepareMockApp: func(mockTransactionApp *mockAppTransaction.MockApp) {
+				mockTransactionApp.EXPECT().CreateTransaction(gomock.Any(), gomock.Any()).Return(nil, accountModel.ErrorAccountNotFound)
 			},
+			ExpectedStatusCode: http.StatusNotFound,
 		},
 	}
 
-	for _, tt := range tests {
-		requestBody, err := json.Marshal(&tt.Input)
-		if err != nil {
-			t.Errorf("Error json.Marshal:%s", err.Error())
-			return
-		}
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.bodyShow {
-				fmt.Println("Json: ", string(requestBody))
+	for name, cs := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctrl, ctx := gomock.WithContext(context.Background(), t)
+			mockTransactionApp := mockAppTransaction.NewMockApp(ctrl)
+			cs.PrepareMockApp(mockTransactionApp)
+
+			h := apiImpl{
+				apps: &app.Container{
+					Transaction: mockTransactionApp,
+				},
 			}
-			createTransactionFunc = tt.PrepareMockTransaction
-			tests_personal.TestNewRequest(t, tt.url, tt.urlReq, tt.method,
-				tt.handlerFunc,
-				bytes.NewBuffer(requestBody),
-				tt.contentType, tt.header, tt.want, tt.bodyShow)
+
+			app := fiber.New()
+			app.Post(endpoint, h.transactionCreate)
+			var requestBody []byte
+			var err error
+
+			if !cs.NotParse {
+				requestBody, err = json.Marshal(cs.InputBody)
+				if err != nil {
+					t.Errorf("Error json.Marshal: %s", err.Error())
+					return
+				}
+			}
+
+			req := httptest.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(requestBody)).WithContext(ctx)
+			req.Header.Set("Content-Type", fiber.MIMEApplicationJSON)
+			resp, err := app.Test(req, -1)
+			if err != nil {
+				t.Errorf("Error app.Test: %s", err.Error())
+				return
+			}
+
+			assert.Equal(t, cs.ExpectedErr, err)
+			assert.Equal(t, cs.ExpectedStatusCode, resp.StatusCode)
 		})
 	}
 }

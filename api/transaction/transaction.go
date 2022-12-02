@@ -1,7 +1,6 @@
 package transaction
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -19,15 +18,12 @@ type apiImpl struct {
 	apps *app.Container
 }
 
-var createTransactionFunc func(ctx context.Context, transactionBody transactionModel.TransactionRequest) (*int64, error)
-
 // NewAPI account function..
 func NewAPI(g fiber.Router, apps *app.Container) {
 	api := apiImpl{
 		apps: apps,
 	}
 
-	createTransactionFunc = apps.Transaction.CreateTransaction
 	g.Post("/", api.transactionCreate)
 }
 
@@ -47,19 +43,14 @@ func (p *apiImpl) transactionCreate(c *fiber.Ctx) error {
 		})
 	}
 
-	ctx := context.Background()
+	ctx := c.Context()
 
-	transactionID, err := createTransactionFunc(ctx, *bodyTransaction)
+	transactionID, err := p.apps.Transaction.CreateTransaction(ctx, *bodyTransaction)
 	if err != nil {
 		log.Println("api.transaction.transactionCreate.CreateTransaction", err.Error())
 		if errors.Is(err, accountModel.ErrorAccountNotFound) {
 			return c.Status(http.StatusNotFound).JSON(errorsP.ErrorsResponse{
 				Message: fmt.Sprintf("Conta (%d) não encontrada", bodyTransaction.AccountID),
-			})
-		}
-		if errors.Is(err, transactionModel.ErrorTransactionTypeNotFound) {
-			return c.Status(http.StatusNotFound).JSON(errorsP.ErrorsResponse{
-				Message: fmt.Sprintf("Operação (%d) não encontrada", bodyTransaction.OperationTypeID),
 			})
 		}
 		return c.Status(http.StatusInternalServerError).JSON(errorsP.ErrorsResponse{
